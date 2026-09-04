@@ -39,6 +39,7 @@ def create_audit(request: AuditRequest):
             target_id=request.target,
             country=request.country,
             lang=request.language,
+            sample_size=request.review_sample_size,
         )
 
         result = analyze(
