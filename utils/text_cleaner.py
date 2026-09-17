@@ -167,6 +167,7 @@ def extract_common_themes(
     ngram_sizes: tuple[int, ...] = settings.THEME_NGRAM_SIZES,
     top_n: int = settings.THEME_TOP_N,
     min_reviews: int = 2,
+    exclude_terms: frozenset[str] = frozenset(),
 ) -> list[ThemeItem]:
     """
     Find recurring keyword/phrase themes across a set of reviews.
@@ -181,6 +182,15 @@ def extract_common_themes(
     list. n-grams of 2+ are drawn from `_content_runs`, so a bigram
     only appears if those two words were genuinely adjacent (modulo
     stopwords) in the original sentence.
+
+    `exclude_terms` filters UNIGRAM candidates only (e.g. the target
+    app's own name -- "whatsapp" mentioned while reviewing WhatsApp
+    is not an insight). Multi-word phrases are never excluded even if
+    they contain an excluded term, since a phrase like "whatsapp
+    crashes" carries real signal that the bare mention doesn't.
+    Filtering happens at candidate generation, before the Counter is
+    built, so an excluded term can never distort the min_reviews
+    threshold or the dedup logic below.
     """
     counter: Counter[str] = Counter()
 
@@ -188,7 +198,9 @@ def extract_common_themes(
         phrases_in_this_review: set[str] = set()
 
         if 1 in ngram_sizes:
-            phrases_in_this_review.update(tokenize(review.content))
+            phrases_in_this_review.update(
+                token for token in tokenize(review.content) if token not in exclude_terms
+            )
 
         multi_word_sizes = [n for n in ngram_sizes if n >= 2]
         if multi_word_sizes:

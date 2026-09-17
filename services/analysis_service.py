@@ -145,6 +145,10 @@ def analyze(
     here (not just assumed from the caller) so this function is safe
     to call directly, not only through the CLI path that already
     caps it upstream.
+
+    Complaint/praise theme extraction excludes the target app's own
+    name as a unigram candidate (see extract_common_themes), since a
+    review naming the app it's reviewing is not a distinct finding.
     """
     competitors = competitors[: settings.MAX_COMPETITORS]
 
@@ -154,8 +158,14 @@ def analyze(
     negative_reviews = [r for r in reviews if r.is_negative]
     positive_reviews = [r for r in reviews if r.is_positive]
 
-    complaint_themes = text_cleaner.extract_common_themes(negative_reviews)
-    praise_themes = text_cleaner.extract_common_themes(positive_reviews)
+    # Exclude the target app's own name from theme candidates -- a
+    # review saying "whatsapp" while reviewing WhatsApp is not an
+    # insight. Tokenized the same way review text is, so multi-word
+    # titles exclude each of their words individually.
+    exclude_terms = frozenset(text_cleaner.tokenize(target.title))
+
+    complaint_themes = text_cleaner.extract_common_themes(negative_reviews, exclude_terms=exclude_terms)
+    praise_themes = text_cleaner.extract_common_themes(positive_reviews, exclude_terms=exclude_terms)
 
     comparison_table = _build_comparison_table(target, competitors)
     recommendations = _build_recommendations(

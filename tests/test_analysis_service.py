@@ -182,3 +182,24 @@ def test_analyze_result_rating_distribution_matches_sample_summary_total():
     reviews = [_review(f"r{i}", (i % 5) + 1) for i in range(37)]
     result = analysis_service.analyze(_app(), [], reviews)
     assert result.rating_distribution.total == result.sample_summary.total_reviews_analyzed == 37
+
+
+# --- analyze(): target app name excluded from theme candidates --------------
+
+
+def test_analyze_excludes_target_app_name_from_theme_candidates():
+    """
+    Regression, end-to-end: analyze() must build the exclusion set
+    from target.title and apply it to both complaint and praise
+    extraction -- proven here with a two-word title so BOTH words get
+    excluded individually, while a multi-word phrase containing one
+    of them is still retained.
+    """
+    target = _app(title="WhatsApp Messenger")
+    reviews = [_review(f"r{i}", 1, "whatsapp crashes on startup") for i in range(3)]
+    reviews += [_review(f"x{i}", 1, "the messenger app is annoying today") for i in range(2)]
+    result = analysis_service.analyze(target, [], reviews)
+    complaint_phrases = {t.phrase for t in result.complaint_themes}
+    assert "whatsapp" not in complaint_phrases
+    assert "messenger" not in complaint_phrases
+    assert "whatsapp crashes" in complaint_phrases

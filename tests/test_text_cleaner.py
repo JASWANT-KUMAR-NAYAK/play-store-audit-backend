@@ -203,3 +203,49 @@ def test_clean_text_collapses_whitespace():
 
 def test_clean_text_handles_none():
     assert text_cleaner.clean_text(None) == ""
+
+
+# --- extract_common_themes(): exclude_terms (target app name exclusion) -----
+
+
+def _app_name_reviews() -> list[Review]:
+    """
+    Deliberately shaped so 'whatsapp' the unigram would normally
+    SURVIVE the pre-existing subsumed-unigram dedup on its own (no
+    single bigram shares its exact count of 5 -- 3 from one phrasing,
+    2 from another) -- so excluding it in the tests below can be
+    cleanly attributed to the new exclude_terms feature, not to dedup
+    already removing it for an unrelated reason.
+    """
+    reviews = [_review(f"r{i}", "whatsapp crashes on startup") for i in range(3)]
+    reviews += [_review(f"x{i}", "the whatsapp app is annoying today") for i in range(2)]
+    return reviews
+
+
+def test_extract_common_themes_excludes_given_unigram_terms():
+    """The target app's own name should not itself count as a complaint/praise theme."""
+    themes = text_cleaner.extract_common_themes(
+        _app_name_reviews(), min_reviews=2, exclude_terms=frozenset({"whatsapp"})
+    )
+    phrases = {t.phrase for t in themes}
+    assert "whatsapp" not in phrases
+
+
+def test_extract_common_themes_retains_multiword_phrase_containing_excluded_term():
+    """A bigram like 'whatsapp crashes' carries real signal the bare mention doesn't -- must survive."""
+    themes = text_cleaner.extract_common_themes(
+        _app_name_reviews(), min_reviews=2, exclude_terms=frozenset({"whatsapp"})
+    )
+    phrases = {t.phrase for t in themes}
+    assert "whatsapp crashes" in phrases
+    assert "whatsapp app" in phrases
+
+
+def test_extract_common_themes_default_exclude_terms_is_empty_and_unchanged():
+    """Calling without exclude_terms must behave exactly as before this feature existed."""
+    reviews = _app_name_reviews()
+    with_default = text_cleaner.extract_common_themes(reviews, min_reviews=2)
+    with_explicit_empty = text_cleaner.extract_common_themes(reviews, min_reviews=2, exclude_terms=frozenset())
+    assert with_default == with_explicit_empty
+    phrases = {t.phrase for t in with_default}
+    assert "whatsapp" in phrases  # nothing excluded when exclude_terms is empty/omitted
