@@ -147,8 +147,12 @@ def analyze(
     caps it upstream.
 
     Complaint/praise theme extraction excludes the target app's own
-    name as a unigram candidate (see extract_common_themes), since a
-    review naming the app it's reviewing is not a distinct finding.
+    name AND the centralized generic/low-information word list
+    (settings.GENERIC_THEME_TERMS) as unigram candidates -- see
+    extract_common_themes. A review naming the app it's reviewing, or
+    using a word like "good"/"app" with no other context, is not a
+    distinct finding on its own; a multi-word phrase built from either
+    kind of excluded word (e.g. "good app") is unaffected.
     """
     competitors = competitors[: settings.MAX_COMPETITORS]
 
@@ -161,8 +165,11 @@ def analyze(
     # Exclude the target app's own name from theme candidates -- a
     # review saying "whatsapp" while reviewing WhatsApp is not an
     # insight. Tokenized the same way review text is, so multi-word
-    # titles exclude each of their words individually.
-    exclude_terms = frozenset(text_cleaner.tokenize(target.title))
+    # titles exclude each of their words individually. Combined with
+    # the centralized generic/low-information word list (settings.
+    # GENERIC_THEME_TERMS) -- both are unigram-only exclusions, so a
+    # phrase containing either kind of excluded term is unaffected.
+    exclude_terms = frozenset(text_cleaner.tokenize(target.title)) | settings.GENERIC_THEME_TERMS
 
     complaint_themes = text_cleaner.extract_common_themes(negative_reviews, exclude_terms=exclude_terms)
     praise_themes = text_cleaner.extract_common_themes(positive_reviews, exclude_terms=exclude_terms)

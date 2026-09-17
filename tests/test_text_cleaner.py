@@ -249,3 +249,21 @@ def test_extract_common_themes_default_exclude_terms_is_empty_and_unchanged():
     assert with_default == with_explicit_empty
     phrases = {t.phrase for t in with_default}
     assert "whatsapp" in phrases  # nothing excluded when exclude_terms is empty/omitted
+
+
+def test_extract_common_themes_does_not_filter_generic_words_by_default():
+    """
+    The generic-word policy (settings.GENERIC_THEME_TERMS) lives in
+    analysis_service.analyze(), not inside extract_common_themes
+    itself -- calling the utility directly without exclude_terms must
+    still allow a word like 'app' as a standalone theme candidate.
+    Fixture shaped so 'app' appears in two different adjacency
+    contexts (count=5 total, no single bigram shares that count), so
+    it would survive the pre-existing dedup on its own too -- its
+    presence here is unambiguous proof of no built-in filtering.
+    """
+    reviews = [_review(f"r{i}", "app crashes on startup") for i in range(3)]
+    reviews += [_review(f"x{i}", "the app is annoying today") for i in range(2)]
+    themes = text_cleaner.extract_common_themes(reviews, min_reviews=2)
+    phrases = {t.phrase for t in themes}
+    assert "app" in phrases

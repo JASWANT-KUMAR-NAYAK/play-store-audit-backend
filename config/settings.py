@@ -55,6 +55,29 @@ OPENAI_MODEL: str = os.getenv("OPENAI_MODEL") or "gpt-4o-mini"
 THEME_NGRAM_SIZES: tuple[int, ...] = (1, 2)
 THEME_TOP_N: int = 10
 
+# Generic/low-information words that should never surface as a STANDALONE
+# theme (e.g. "good" or "app" tell a reader nothing on their own), even
+# though they're legitimate English words and not NLP stopwords. Centralized
+# here rather than hardcoded in the extraction algorithm so the list can be
+# tuned without touching text_cleaner.py. Applied as unigram-only exclusion
+# by analysis_service.analyze() -- a multi-word phrase containing one of
+# these (e.g. "good app") is unaffected; see extract_common_themes().
+GENERIC_THEME_TERMS: frozenset[str] = frozenset(
+    {
+        "app",
+        "good",
+        "nice",
+        "best",
+        "use",
+        "please",
+        "trying",
+        "back",
+        "need",
+        "review",
+        "update",
+    }
+)
+
 # --- Chart output --------------------------------------------------------
 
 CHART_DPI: int = 150

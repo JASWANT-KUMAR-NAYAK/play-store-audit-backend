@@ -203,3 +203,51 @@ def test_analyze_excludes_target_app_name_from_theme_candidates():
     assert "whatsapp" not in complaint_phrases
     assert "messenger" not in complaint_phrases
     assert "whatsapp crashes" in complaint_phrases
+
+
+# --- analyze(): generic/low-information words excluded from theme candidates -
+
+
+def test_analyze_excludes_generic_standalone_words_from_theme_candidates():
+    """
+    Regression: words like 'good'/'app'/'nice' carry no information as
+    standalone themes and must not surface as bare unigrams. Title is
+    chosen to not overlap with any generic term, so this is cleanly
+    attributable to settings.GENERIC_THEME_TERMS, not target-name exclusion.
+    """
+    target = _app(title="TaskMaster")
+    reviews = [_review(f"r{i}", 5, "good app nice design") for i in range(5)]
+    result = analysis_service.analyze(target, [], reviews)
+    praise_phrases = {t.phrase for t in result.praise_themes}
+    assert "good" not in praise_phrases
+    assert "app" not in praise_phrases
+    assert "nice" not in praise_phrases
+
+
+def test_analyze_retains_multiword_phrases_containing_generic_words():
+    """'good app' still carries signal even though both of its words are individually generic."""
+    target = _app(title="TaskMaster")
+    reviews = [_review(f"r{i}", 5, "good app nice design") for i in range(5)]
+    result = analysis_service.analyze(target, [], reviews)
+    praise_phrases = {t.phrase for t in result.praise_themes}
+    assert "good app" in praise_phrases
+
+
+def test_analyze_composes_target_name_and_generic_word_exclusion():
+    """
+    Both exclusion sources must apply together in one call: the
+    target's own name AND the generic-word list. 'messenger app'
+    survives despite containing BOTH a target-name component
+    ('messenger') and a generic word ('app') -- proving retention
+    holds even when a phrase touches both exclusion sources at once.
+    """
+    target = _app(title="WhatsApp Messenger")
+    reviews = [_review(f"r{i}", 1, "whatsapp crashes on startup") for i in range(3)]
+    reviews += [_review(f"x{i}", 1, "the messenger app is annoying today") for i in range(2)]
+    result = analysis_service.analyze(target, [], reviews)
+    complaint_phrases = {t.phrase for t in result.complaint_themes}
+    assert "whatsapp" not in complaint_phrases
+    assert "messenger" not in complaint_phrases
+    assert "app" not in complaint_phrases
+    assert "whatsapp crashes" in complaint_phrases
+    assert "messenger app" in complaint_phrases
